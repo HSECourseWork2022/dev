@@ -44,6 +44,21 @@ services:
       - kafka
       - postgres
 
+  report-builder:
+    container_name: report-builder
+    image: "yawkar/report-builder"
+    networks:
+      - app-tier
+    ports:
+      - "8000:8000"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/cryptocurrency
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SERVER_PORT=8000
+    depends_on:
+      - postgres
+
   zookeeper:
     container_name: zookeeper
     image: "bitnami/zookeeper:latest"
