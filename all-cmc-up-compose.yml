@@ -13,7 +13,7 @@ services:
       - BOOTSTRAP_SERVERS=kafka:9092
       - PRODUCER_SOURCE=cmc
       - PRODUCER_SUBTHEME=cryptocurrency
-      - CMC_API_KEY=203c08ca-cb50-4dd6-8d98-e74a23a2934d
+      - CMC_API_KEY=
     depends_on:
       - kafka
 
@@ -33,10 +33,12 @@ services:
     image: "yawkar/cryptocurrency-loader"
     networks:
       - app-tier
+    ports:
+      - "8081:8081"
     environment:
       - SPRING_KAFKA_BOOTSTRAP-SERVERS=kafka:9092
       - SPRING_KAFKA_CONSUMER_GROUP-ID=cryptocurrency-loaders
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/cryptocurrency
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgrescontainer:5432/cryptocurrency
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - LOADER_SUBTHEME=cryptocurrency
@@ -52,7 +54,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/cryptocurrency
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgrescontainer:5432/cryptocurrency
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - SERVER_PORT=8000
@@ -71,11 +73,12 @@ services:
 
   kafka:
     container_name: kafka
-    image: "bitnami/kafka:latest"
+    image: "bitnami/kafka:3.0.0"
     networks:
       - app-tier
     ports:
       - "9093:9093"
+      - "9092:9092"
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
@@ -103,7 +106,7 @@ services:
       - kafka
 
   postgres:
-    container_name: postgres-container
+    container_name: postgrescontainer
     image: postgres:14-alpine
     networks:
       - app-tier
@@ -113,6 +116,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=cryptocurrency
+      - POSTGRES_HOST_AUTH_METHOD=trust
       
   db-migrations:
     container_name: liquibase-container
@@ -120,8 +124,8 @@ services:
     networks:
       - app-tier
     environment:
-      - DB_URL=postgres:5432
-      - JDBC_URL=jdbc:postgresql://postgres:5432/cryptocurrency 
+      - DB_URL=postgrescontainer:5432
+      - JDBC_URL=jdbc:postgresql://postgrescontainer:5432/cryptocurrency
       - USERNAME=postgres  
       - PASSWORD=postgres
     links:
@@ -129,5 +133,33 @@ services:
     depends_on:
       - postgres
     
-    
-    
+  prometheus:
+    image: bitnami/prometheus:2.42.0
+    container_name: prometheuscoursework
+    ports:
+      - "1000:1000"
+    command:
+      - --web.listen-address=:10000
+      - --storage.tsdb.path=/prometheus
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus_data:/opt/bitnami/prometheus/data
+    networks:
+      - app-tier
+
+  grafana:
+    image: bitnami/grafana:9.4.3
+    container_name: grafanacoursework
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECUTIRY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana_data:/opt/bitnami/grafana/data
+      - ./monitoring/grafana/provisioning:/opt/bitnami/grafana/conf/provisioning
+    networks:
+      - app-tier
+    depends_on:
+      - prometheus
